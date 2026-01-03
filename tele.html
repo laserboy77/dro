@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔭 Newtonian Telescope VR Simulator | Meta Quest 3</title>
+    
+    <!-- A-Frame Library -->
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    
+    <style>
+        /* RESET & LOADING */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { width: 100%; height: 100%; overflow: hidden; font-family: Arial; }
+        
+        /* LOADING SCREEN */
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            transition: opacity 1s;
+        }
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 6px solid rgba(0, 204, 255, 0.3);
+            border-top: 6px solid #00ccff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* HIDE LOADING */
+        #loading.hidden { opacity: 0; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <!-- LOADING SCREEN -->
+    <div id="loading">
+        <div style="text-align: center;">
+            <div class="spinner"></div>
+            <h1 style="color: #00ccff;">Loading Telescope VR...</h1>
+            <p id="status" style="margin-top: 20px;">Initializing...</p>
+        </div>
+    </div>
+
+    <!-- MAIN VR SCENE -->
+    <a-scene 
+        vr-mode-ui="enabled: true"
+        xr-mode-ui="XRMode: vr"
+        background="color: #000022"
+        loading-screen="enabled: false"
+    >
+        <!-- CAMERA -->
+        <a-entity id="camera-rig" position="0 1.6 5">
+            <a-camera id="camera" look-controls="enabled: true">
+                <!-- Laser pointer -->
+                <a-entity 
+                    cursor="fuse: true; fuseTimeout: 500"
+                    position="0 0 -1"
+                    geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+                    material="color: #00ff00; shader: flat"
+                ></a-entity>
+            </a-camera>
+        </a-entity>
+        
+        <!-- OBSERVATORY ENVIRONMENT -->
+        <!-- Floor -->
+        <a-circle 
+            position="0 0 0"
+            rotation="-90 0 0"
+            radius="20"
+            color="#222233"
+            roughness="0.8"
+        ></a-circle>
+        
+        <!-- Telescope Platform -->
+        <a-cylinder 
+            position="0 0.05 0"
+            radius="2"
+            height="0.1"
+            color="#333344"
+        ></a-cylinder>
+        
+        <!-- NEWTONIAN TELESCOPE -->
+        <a-entity id="telescope" position="0 1 -2">
+            <!-- TRIPOD BASE -->
+            <a-entity id="base" position="0 0 0" class="part" data-name="Base">
+                <!-- Tripod legs -->
+                <a-cylinder radius="0.06" height="0.8" color="#8B4513" position="-0.3 0.4 0"></a-cylinder>
+                <a-cylinder radius="0.06" height="0.8" color="#8B4513" position="0.3 0.4 0" rotation="0 0 60"></a-cylinder>
+                <a-cylinder radius="0.06" height="0.8" color="#8B4513" position="0 0.4 0.3" rotation="60 0 0"></a-cylinder>
+                <!-- Central column -->
+                <a-cylinder radius="0.08" height="0.4" color="#555555" position="0 0.9 0"></a-cylinder>
+            </a-entity>
+            
+            <!-- EQUATORIAL MOUNT -->
+            <a-entity id="mount" position="0 1.2 0" rotation="0 45 0" class="part" data-name="Equatorial Mount">
+                <a-box width="0.4" height="0.1" depth="0.4" color="#666666"></a-box>
+                <a-cylinder radius="0.15" height="0.05" color="#777777" position="0 -0.1 0"></a-cylinder>
+                <!-- RA Axis -->
+                <a-cylinder radius="0.04" height="0.3" color="#888888" position="0.2 0.15 0" rotation="0 0 90"></a-cylinder>
+                <!-- Dec Axis -->
+                <a-cylinder radius="0.04" height="0.3" color="#888888" position="0 0.15 0.2" rotation="90 0 0"></a-cylinder>
+            </a-entity>
+            
+            <!-- OPTICAL TUBE -->
+            <a-entity id="tube" position="0 1.5 0" class="part" data-name="Optical Tube">
+                <!-- Main tube -->
+                <a-cylinder 
+                    radius="0.3" 
+                    height="1.5" 
+                    color="#2a2a2a"
+                    roughness="0.7"
+                    metalness="0.3"
+                    position="0 0.75 0"
+                ></a-cylinder>
+                
+                <!-- PRIMARY MIRROR (Bottom) -->
+                <a-cylinder 
+                    id="primary-mirror"
+                    radius="0.25" 
+                    height="0.05" 
+                    color="#00ffff"
+                    emissive="#00ffff"
+                    emissive-intensity="0.3"
+                    position="0 0.05 0"
+                    class="part" 
+                    data-name="Primary Mirror"
+                ></a-cylinder>
+                
+                <!-- SECONDARY MIRROR (Top, angled) -->
+                <a-box 
+                    id="secondary-mirror"
+                    width="0.12" 
+                    height="0.001" 
+                    depth="0.12" 
+                    color="#88ffff"
+                    emissive="#88ffff"
+                    emissive-intensity="0.2"
+                    position="0 1.45 0"
+                    rotation="45 0 0"
+                    class="part" 
+                    data-name="Secondary Mirror"
+                ></a-box>
+                
+                <!-- Spider vanes (hold secondary) -->
+                <a-box width="0.02" height="1.5" depth="0.005" color="#aaaaaa" position="0 0.75 0"></a-box>
+                <a-box width="0.02" height="1.5" depth="0.005" color="#aaaaaa" position="0 0.75 0" rotation="0 90 0"></a-box>
+                
+                <!-- FOCUSER -->
+                <a-cylinder 
+                    id="focuser"
+                    radius="0.06" 
+                    height="0.2" 
+                    color="#444444"
+                    position="0.35 1.45 0"
+                    rotation="0 0 90"
+                    class="part" 
+                    data-name="Focuser"
+                ></a-cylinder>
+                
+                <!-- EYEPIECE -->
+                <a-cylinder 
+                    id="eyepiece"
+                    radius="0.04" 
+                    height="0.15" 
+                    color="#111111"
+                    position="0.5 1.45 0"
+                    rotation="0 0 90"
+                    class="part" 
+                    data-name="Eyepiece"
+                >
+                    <a-cylinder 
+                        radius="0.025" 
+                        height="0.05" 
+                        color="#00aaff"
+                        emissive="#00aaff"
+                        emissive-intensity="0.2"
+                        position="0.08 0 0"
+                    ></a-cylinder>
+                </a-cylinder>
+                
+                <!-- FINDER SCOPE -->
+                <a-cylinder 
+                    id="finder"
+                    radius="0.025" 
+                    height="0.3" 
+                    color="#333333"
+                    position="0.2 1.55 0.1"
+                    rotation="10 0 0"
+                    class="part" 
+                    data-name="Finder Scope"
+                ></a-cylinder>
+            </a-entity>
+            
+            <!-- LIGHT PATH VISUALIZATION -->
+            <a-entity id="light-path">
+                <!-- Incoming light -->
+                <a-cone 
+                    radius-bottom="0.3" 
+                    radius-top="0.05" 
+                    height="1" 
+                    color="#ffff00"
+                    opacity="0.4"
+                    position="0 2 0.5"
+                    rotation="0 180 0"
+                >
+                    <a-animation 
+                        attribute="position"
+                        dur="2000"
+                        from="0 2 0.5"
+                        to="0 1.5 0"
+                        repeat="indefinite"
+                    ></a-animation>
+                </a-cone>
+                
+                <!-- Reflected light to secondary -->
+                <a-cone 
+                    radius-bottom="0.15" 
+                    radius-top="0.05" 
+                    height="0.8" 
+                    color="#ffff00"
+                    opacity="0.3"
+                    position="0 0.8 0"
+                    rotation="90 0 0"
+                >
+                    <a-animation 
+                        attribute="position"
+                        dur="2000"
+                        from="0 0.8 0"
+                        to="0 1.4 0"
+                        repeat="indefinite"
+                        delay="1000"
+                    ></a-animation>
+                </a-cone>
+                
+                <!-- Light to eyepiece -->
+                <a-cone 
+                    radius-bottom="0.1" 
+                    radius-top="0.02" 
+                    height="0.3" 
+                    color="#ffff00"
+                    opacity="0.3"
+                    position="0 1.45 0"
+                >
+                    <a-animation 
+                        attribute="position"
+                        dur="2000"
+                        from="0 1.45 0"
+                        to="0.5 1.45 0"
+                        repeat="indefinite"
+                        delay="1500"
+                    ></a-animation>
+                </a-cone>
+            </a-entity>
+        </a-entity>
+        
+        <!-- SKY -->
+        <a-sky color="#000011"></a-sky>
+        
+        <!-- STARS -->
+        <a-entity particle-system="preset: snow; particleCount: 1000; color: white; size: 0.1"></a-entity>
+        
+        <!-- LIGHTING -->
+        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="0.8" position="2 5 3" cast-shadow></a-light>
+        
+        <!-- AI ASSISTANT PANEL -->
+        <a-entity id="ai-panel" position="0 2.5 -3">
+            <a-plane 
+                width="1.5"
+                height="0.8"
+                color="#000033"
+                opacity="0.9"
+                position="0 0 0"
+                side="double"
+            >
+                <a-text 
+                    id="ai-title"
+                    value="🔭 AI Telescope Assistant"
+                    align="center"
+                    width="1.4"
+                    color="#00ccff"
+                    position="0 0.25 0.01"
+                    scale="0.8 0.8 0.8"
+                ></a-text>
+                
+                <a-text 
+                    id="ai-message"
+                    value="Click any telescope part or say 'Hello AI'"
+                    align="center"
+                    width="1.4"
+                    color="#ffffff"
+                    position="0 0.1 0.01"
+                    scale="0.6 0.6 0.6"
+                ></a-text>
+                
+                <a-text 
+                    id="ai-response"
+                    value=""
+                    align="center"
+                    width="1.4"
+                    wrap-count="30"
+                    color="#88ff88"
+                    position="0 -0.1 0.01"
+                    scale="0.5 0.5 0.5"
+                ></a-text>
+                
+                <!-- Voice Button -->
+                <a-circle 
+                    id="voice-btn"
+                    radius="0.07"
+                    color="#00aa00"
+                    position="-0.4 -0.3 0.01"
+                    class="clickable"
+                >
+                    <a-text value="🎤" align="center" scale="0.6 0.6 0.6"></a-text>
+                </a-circle>
+                
+                <!-- Reset View -->
+                <a-circle 
+                    id="reset-btn"
+                    radius="0.07"
+                    color="#aa00aa"
+                    position="0 -0.3 0.01"
+                    class="clickable"
+                >
+                    <a-text value="🏠" align="center" scale="0.6 0.6 0.6"></a-text>
+                </a-circle>
+                
+                <!-- Light Path Toggle -->
+                <a-circle 
+                    id="light-btn"
+                    radius="0.07"
+                    color="#ffaa00"
+                    position="0.4 -0.3 0.01"
+                    class="clickable"
+                >
+                    <a-text value="✨" align="center" scale="0.6 0.6 0.6"></a-text>
+                </a-circle>
+            </a-plane>
+        </a-entity>
+        
+        <!-- AUDIO -->
+        <audio id="click-sound" preload="auto">
+            <source src="https://assets.mixkit.co/sfx/preview/mixkit-select-click-1109.mp3" type="audio/mpeg">
+        </audio>
+        
+        <audio id="zoom-sound" preload="auto">
+            <source src="https://assets.mixkit.co/sfx/preview/mixkit-camera-zoom-1532.mp3" type="audio/mpeg">
+        </audio>
+        
+    </a-scene>
+
+    <script>
+        // ================ MAIN APPLICATION ================
+        console.log("🚀 Telescope VR App Starting...");
+        
+        // Wait for A-Frame to load
+        document.querySelector('a-scene').addEventListener('loaded', function() {
+            console.log("✅ A-Frame Scene Loaded");
+            initializeApp();
+        });
+        
+        function initializeApp() {
+            updateStatus("Setting up telescope...");
+            
+            // Setup parts interaction
+            setupTelescopeInteractions();
+            
+            // Setup AI panel
+            setupAIPanel();
+            
+            // Setup voice recognition
+            setupVoiceRecognition();
+            
+            // Hide loading screen after 2 seconds
+            setTimeout(() => {
+                document.getElementById('loading').classList.add('hidden');
+                speak("Welcome to Newtonian Telescope VR Simulator! Click any part to learn about it.");
+            }, 2000);
+            
+            console.log("🎯 App Ready!");
+        }
+        
+        function updateStatus(message) {
+            const status = document.getElementById('status');
+            if (status) status.textContent = message;
+        }
+        
+        // ================ TELESCOPE INTERACTION ================
+        function setupTelescopeInteractions() {
+            const parts = document.querySelectorAll('.part');
+            
+            parts.forEach(part => {
+                // Click event
+                part.addEventListener('click', function() {
+                    const partName = this.getAttribute('data-name');
+                    console.log("Clicked:", partName);
+                    
+                    // Highlight part
+                    highlightPart(this);
+                    
+                    // Speak about part
+                    explainPart(partName);
+                    
+                    // Zoom to part
+                    zoomToPart(partName);
+                });
+                
+                // Hover effect
+                part.addEventListener('mouseenter', function() {
+                    this.setAttribute('animation__hover', {
+                        property: 'scale',
+                        to: '1.05 1.05 1.05',
+                        dur: 200,
+                        easing: 'easeOutQuad'
+                    });
+                });
+                
+                part.addEventListener('mouseleave', function() {
+                    this.setAttribute('animation__hover', {
+                        property: 'scale',
+                        to: '1 1 1',
+                        dur: 200,
+                        easing: 'easeOutQuad'
+                    });
+                });
+            });
+        }
+        
+        function highlightPart(part) {
+            // Add glow effect
+            part.setAttribute('material', 'emissive', '#ffff00');
+            part.setAttribute('material', 'emissive-intensity', '0.5');
+            
+            // Remove after 2 seconds
+            setTimeout(() => {
+                part.setAttribute('material', 'emissive', '#000000');
+                part.setAttribute('material', 'emissive-intensity', '0');
+            }, 2000);
+        }
+        
+        function zoomToPart(partName) {
+            const cameraRig = document.getElementById('camera-rig');
+            const part = document.getElementById(partName.toLowerCase().replace(' ', '-'));
+            
+            if (!cameraRig || !part) return;
+            
+            // Play zoom sound
+            playSound('zoom-sound');
+            
+            // Calculate zoom position (closer to part)
+            const partPos = part.object3D.position;
+            const zoomPos = {
+                x: partPos.x,
+                y: partPos.y + 0.5,
+                z: partPos.z + 1
+            };
+            
+            // Animate camera
+            cameraRig.setAttribute('animation', {
+                property: 'position',
+                to: `${zoomPos.x} ${zoomPos.y} ${zoomPos.z}`,
+                dur: 1000,
+                easing: 'easeInOutQuad'
+            });
+            
+            // Look at the part
+            cameraRig.setAttribute('animation__look', {
+                property: 'rotation',
+                to: `0 ${Math.atan2(partPos.x, partPos.z) * (180 / Math.PI)} 0`,
+                dur: 1000,
+                easing: 'easeInOutQuad'
+            });
+        }
+        
+        function resetView() {
+            const cameraRig = document.getElementById('camera-rig');
+            if (cameraRig) {
+                cameraRig.setAttribute('animation', {
+                    property: 'position',
+                    to: '0 1.6 5',
+                    dur: 800,
+                    easing: 'easeInOutQuad'
+                });
+                cameraRig.setAttribute('animation__look', {
+                    property: 'rotation',
+                    to: '0 0 0',
+                    dur: 800,
+                    easing: 'easeInOutQuad'
+                });
+                playSound('click-sound');
+            }
+        }
+        
+        function toggleLightPath() {
+            const lightPath = document.getElementById('light-path');
+            const isVisible = lightPath.getAttribute('visible') !== 'false';
+            lightPath.setAttribute('visible', !isVisible);
+            
+            speak(isVisible ? "Light path hidden" : "Showing light path through telescope");
+            playSound('click-sound');
+        }
+        
+        // ================ AI VOICE SYSTEM ================
+        const knowledgeBase = {
+            "Base": "The tripod base provides stability. It has three adjustable legs to level the telescope on uneven ground.",
+            "Equatorial Mount": "This mount has two axes: Right Ascension tracks stars, Declination adjusts up/down. It follows stars as Earth rotates.",
+            "Optical Tube": "The main tube houses the optical system. It's 1.5 meters long with a 200mm diameter for maximum light collection.",
+            "Primary Mirror": "The large concave mirror at the bottom collects and focuses light. It's made of precision-ground glass with aluminum coating.",
+            "Secondary Mirror": "The small flat mirror redirects light to the eyepiece. It's held by spider vanes in the center of the tube.",
+            "Focuser": "This mechanism moves the eyepiece in and out for sharp focus. It has fine adjustment knobs for precision.",
+            "Eyepiece": "The eyepiece magnifies the focused image. Different eyepieces provide different magnifications.",
+            "Finder Scope": "A small telescope with crosshairs for locating objects before viewing through the main telescope."
+        };
+        
+        function explainPart(partName) {
+            const explanation = knowledgeBase[partName] || 
+                `The ${partName} is part of the Newtonian telescope. Click another part for more details.`;
+            
+            speak(explanation);
+            updateAIResponse(explanation);
+        }
+        
+        function speak(text) {
+            // Try speech synthesis
+            if ('speechSynthesis' in window) {
+                speechSynthesis.cancel(); // Stop any current speech
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                utterance.volume = 1.0;
+                
+                // Get available voices
+                const voices = speechSynthesis.getVoices();
+                const femaleVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Samantha')) || voices[0];
+                if (femaleVoice) utterance.voice = femaleVoice;
+                
+                speechSynthesis.speak(utterance);
+                
+                // Visual feedback
+                document.getElementById('ai-response').setAttribute('color', '#ffff00');
+                setTimeout(() => {
+                    document.getElementById('ai-response').setAttribute('color', '#88ff88');
+                }, 3000);
+            }
+            
+            // Always update text
+            updateAIResponse(text);
+        }
+        
+        function updateAIResponse(text) {
+            const aiResponse = document.getElementById('ai-response');
+            if (aiResponse) {
+                aiResponse.setAttribute('value', text);
+            }
+        }
+        
+        // ================ VOICE RECOGNITION ================
+        function setupVoiceRecognition() {
+            if ('webkitSpeechRecognition' in window) {
+                const recognition = new webkitSpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+                
+                recognition.onstart = function() {
+                    console.log("🎤 Listening...");
+                    updateAIResponse("Listening...");
+                    document.getElementById('voice-btn').setAttribute('color', '#ff0000');
+                };
+                
+                recognition.onresult = function(event) {
+                    const transcript = event.results[0][0].transcript;
+                    console.log("Heard:", transcript);
+                    processVoiceCommand(transcript);
+                };
+                
+                recognition.onerror = function(event) {
+                    console.error("Voice error:", event.error);
+                    speak("Sorry, I didn't catch that. Please try again.");
+                };
+                
+                recognition.onend = function() {
+                    document.getElementById('voice-btn').setAttribute('color', '#00aa00');
+                };
+                
+                // Attach to button
+                document.getElementById('voice-btn').addEventListener('click', function() {
+                    playSound('click-sound');
+                    recognition.start();
+                });
+                
+                // Add voice commands
+                window.voiceRecognition = recognition;
+            } else {
+                console.warn("Voice recognition not supported");
+                document.getElementById('voice-btn').style.display = 'none';
+                updateAIResponse("Voice not supported - click parts instead");
+            }
+        }
+        
+        function processVoiceCommand(command) {
+            const lowerCmd = command.toLowerCase();
+            
+            // Greeting
+            if (lowerCmd.includes('hello') || lowerCmd.includes('hi')) {
+                speak("Hello! I'm your telescope assistant. Click any part or ask questions.");
+            }
+            
+            // Part queries
+            else if (lowerCmd.includes('base') || lowerCmd.includes('tripod')) {
+                explainPart("Base");
+            }
+            else if (lowerCmd.includes('mount')) {
+                explainPart("Equatorial Mount");
+            }
+            else if (lowerCmd.includes('tube') || lowerCmd.includes('main')) {
+                explainPart("Optical Tube");
+            }
+            else if (lowerCmd.includes('primary') || lowerCmd.includes('main mirror')) {
+                explainPart("Primary Mirror");
+            }
+            else if (lowerCmd.includes('secondary') || lowerCmd.includes('small mirror')) {
+                explainPart("Secondary Mirror");
+            }
+            else if (lowerCmd.includes('focus')) {
+                explainPart("Focuser");
+            }
+            else if (lowerCmd.includes('eye') || lowerCmd.includes('lens')) {
+                explainPart("Eyepiece");
+            }
+            else if (lowerCmd.includes('finder')) {
+                explainPart("Finder Scope");
+            }
+            
+            // Actions
+            else if (lowerCmd.includes('reset') || lowerCmd.includes('back')) {
+                resetView();
+            }
+            else if (lowerCmd.includes('light') || lowerCmd.includes('path')) {
+                toggleLightPath();
+            }
+            else if (lowerCmd.includes('how') && lowerCmd.includes('work')) {
+                speak("Light enters the tube, hits the primary mirror, reflects to secondary mirror, then goes to eyepiece where you see the magnified image.");
+            }
+            else if (lowerCmd.includes('what can i see')) {
+                speak("You can see the Moon's craters, Jupiter's moons, Saturn's rings, nebulae, and galaxies with this telescope.");
+            }
+            else if (lowerCmd.includes('thank')) {
+                speak("You're welcome! Ask me anything else about telescopes.");
+            }
+            else {
+                speak(`I heard: "${command}". Try asking about telescope parts or say "how does it work".`);
+            }
+        }
+        
+        // ================ UI CONTROLS ================
+        function setupAIPanel() {
+            // Voice button
+            document.getElementById('voice-btn').addEventListener('click', function() {
+                playSound('click-sound');
+            });
+            
+            // Reset button
+            document.getElementById('reset-btn').addEventListener('click', function() {
+                resetView();
+            });
+            
+            // Light path button
+            document.getElementById('light-btn').addEventListener('click', function() {
+                toggleLightPath();
+            });
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                switch(e.key) {
+                    case 'Escape':
+                        resetView();
+                        break;
+                    case ' ':
+                        if (window.voiceRecognition) window.voiceRecognition.start();
+                        break;
+                    case 'l':
+                    case 'L':
+                        toggleLightPath();
+                        break;
+                }
+            });
+        }
+        
+        // ================ UTILITIES ================
+        function playSound(soundId) {
+            const sound = document.getElementById(soundId);
+            if (sound) {
+                sound.currentTime = 0;
+                sound.play().catch(e => console.log("Audio error:", e));
+            }
+        }
+        
+        // Auto-start voice list (for speech synthesis)
+        if ('speechSynthesis' in window) {
+            speechSynthesis.getVoices(); // Trigger voice loading
+        }
+        
+        // Show help on start
+        setTimeout(() => {
+            updateAIResponse("Click parts or say 'Hello AI'");
+        }, 1000);
+        
+        // Global functions for debugging
+        window.debug = {
+            speak: speak,
+            reset: resetView,
+            toggleLight: toggleLightPath
+        };
+        
+    </script>
+</body>
+</html>
