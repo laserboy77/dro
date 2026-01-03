@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔭 Newtonian Telescope VR | Meta Quest 3</title>
+    
+    <!-- A-Frame -->
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+        
+        /* LOADING SCREEN */
+        #loading {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #000;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            font-family: Arial;
+        }
+        
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(0, 200, 255, 0.3);
+            border-top: 5px solid #00ccff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* HIDDEN */
+        .hidden { display: none !important; }
+        
+        /* CONTROL PANEL */
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border-radius: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .control-btn {
+            background: #00aaff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        /* AI MESSAGE */
+        #ai-message {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: #00ff00;
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 100;
+            max-width: 500px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- LOADING -->
+    <div id="loading">
+        <div style="text-align: center;">
+            <div class="loader"></div>
+            <h2>Loading Newtonian Telescope VR</h2>
+            <p id="status">Initializing...</p>
+            <p style="color: #aaa; margin-top: 10px;">Put on your Meta Quest 3 headset</p>
+        </div>
+    </div>
+    
+    <!-- AI MESSAGE -->
+    <div id="ai-message" class="hidden">Click any telescope part!</div>
+    
+    <!-- CONTROLS -->
+    <div id="controls" class="hidden">
+        <button class="control-btn" onclick="speak('The primary mirror collects light from stars and galaxies')">🔭 Explain</button>
+        <button class="control-btn" onclick="startVoice()">🎤 Voice</button>
+        <button class="control-btn" onclick="resetView()">🏠 Reset</button>
+        <button class="control-btn" onclick="toggleLight()">✨ Light Path</button>
+    </div>
+    
+    <!-- VR SCENE -->
+    <a-scene 
+        vr-mode-ui="enabled: true"
+        xr-mode-ui="XRMode: vr"
+        background="color: #000011"
+        loading-screen="enabled: false"
+        renderer="antialias: true; colorManagement: true"
+    >
+        
+        <!-- CAMERA -->
+        <a-entity id="camera-rig" position="0 1.6 4">
+            <a-camera id="camera" look-controls="enabled: true" wasd-controls="enabled: true">
+                <!-- Laser pointer -->
+                <a-entity cursor="rayOrigin: mouse; fuse: false"
+                    raycaster="objects: .clickable; far: 5; interval: 100"
+                    geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.016"
+                    material="color: #00ff00; shader: flat">
+                </a-entity>
+            </a-camera>
+        </a-entity>
+        
+        <!-- TELESCOPE -->
+        <a-entity id="telescope" position="0 0 -2">
+            <!-- BASE -->
+            <a-cylinder id="base" class="clickable" radius="0.4" height="0.1" color="#8B4513" position="0 0.05 0"></a-cylinder>
+            
+            <!-- MOUNT -->
+            <a-cylinder id="mount" class="clickable" radius="0.08" height="0.8" color="#666666" position="0 0.5 0"></a-cylinder>
+            
+            <!-- TUBE -->
+            <a-cylinder id="tube" class="clickable" radius="0.3" height="1.5" color="#333333" position="0 1.3 0"></a-cylinder>
+            
+            <!-- PRIMARY MIRROR (GLOWING) -->
+            <a-cylinder id="primary" class="clickable" radius="0.25" height="0.05" color="#00ffff" 
+                emissive="#00ffff" emissive-intensity="0.5" position="0 0.55 0.26" rotation="90 0 0">
+                <a-animation attribute="material.emissive-intensity" from="0.3" to="0.8" dur="2000" repeat="indefinite" direction="alternate"></a-animation>
+            </a-cylinder>
+            
+            <!-- SECONDARY MIRROR -->
+            <a-box id="secondary" class="clickable" width="0.12" height="0.001" depth="0.12" color="#88ffff"
+                emissive="#88ffff" emissive-intensity="0.3" position="0 1.55 0" rotation="45 0 0"></a-box>
+            
+            <!-- EYEPIECE -->
+            <a-cylinder id="eyepiece" class="clickable" radius="0.05" height="0.2" color="#222222" position="0.35 1.55 0" rotation="0 0 90"></a-cylinder>
+            
+            <!-- FINDER SCOPE -->
+            <a-cylinder id="finder" class="clickable" radius="0.025" height="0.3" color="#444444" position="0.2 1.6 0.1" rotation="10 0 0"></a-cylinder>
+            
+            <!-- LIGHT PATH VISUALIZATION -->
+            <a-entity id="light-path" visible="true">
+                <!-- Light beam entering -->
+                <a-cone radius-bottom="0.3" radius-top="0.05" height="1" color="#ffff00" opacity="0.3"
+                    position="0 2 0.5" rotation="180 0 0">
+                    <a-animation attribute="position" from="0 2 0.5" to="0 1.5 0" dur="2000" repeat="indefinite"></a-animation>
+                </a-cone>
+                
+                <!-- Reflection to secondary -->
+                <a-cone radius-bottom="0.2" radius-top="0.05" height="0.8" color="#ffff00" opacity="0.2"
+                    position="0 0.8 0" rotation="90 0 0">
+                    <a-animation attribute="position" from="0 0.8 0" to="0 1.4 0" dur="2000" repeat="indefinite" delay="1000"></a-animation>
+                </a-cone>
+                
+                <!-- To eyepiece -->
+                <a-cone radius-bottom="0.1" radius-top="0.02" height="0.3" color="#ffff00" opacity="0.2"
+                    position="0 1.45 0">
+                    <a-animation attribute="position" from="0 1.45 0" to="0.35 1.45 0" dur="2000" repeat="indefinite" delay="1500"></a-animation>
+                </a-cone>
+            </a-entity>
+        </a-entity>
+        
+        <!-- FLOOR -->
+        <a-circle position="0 0 0" rotation="-90 0 0" radius="10" color="#222244"></a-circle>
+        
+        <!-- SKY -->
+        <a-sky color="#000022"></a-sky>
+        
+        <!-- STARS -->
+        <a-entity particle-system="preset: snow; particleCount: 800; color: #FFFFFF; size: 0.05; maxAge: 10"></a-entity>
+        
+        <!-- LIGHTING -->
+        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="0.8" position="2 5 3"></a-light>
+        
+        <!-- SOUNDS -->
+        <audio id="click-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-select-click-1109.mp3" preload="auto"></audio>
+        
+    </a-scene>
+
+    <script>
+        // ==================== MAIN APPLICATION ====================
+        console.log("🚀 Starting Telescope VR App...");
+        
+        // Wait for scene to load
+        document.querySelector('a-scene').addEventListener('loaded', function() {
+            console.log("✅ A-Frame loaded");
+            startApp();
+        });
+        
+        function startApp() {
+            updateStatus("Creating telescope...");
+            
+            // Setup click events
+            setupInteractions();
+            
+            // Setup AI voice
+            setupVoice();
+            
+            // Show controls
+            setTimeout(() => {
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('controls').classList.remove('hidden');
+                document.getElementById('ai-message').classList.remove('hidden');
+                
+                // Welcome message
+                speak("Welcome to Newtonian Telescope VR! Click any part to learn about it.");
+                
+                // Auto-show message
+                showMessage("Click the telescope parts!");
+                
+                console.log("🎯 App ready!");
+            }, 2000);
+        }
+        
+        function updateStatus(msg) {
+            const el = document.getElementById('status');
+            if (el) el.textContent = msg;
+        }
+        
+        function showMessage(msg) {
+            const el = document.getElementById('ai-message');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 5000);
+        }
+        
+        // ==================== TELESCOPE INTERACTION ====================
+        function setupInteractions() {
+            const parts = ['base', 'mount', 'tube', 'primary', 'secondary', 'eyepiece', 'finder'];
+            
+            parts.forEach(partId => {
+                const el = document.getElementById(partId);
+                if (el) {
+                    // Click event
+                    el.addEventListener('click', function() {
+                        playSound('click-sound');
+                        highlightPart(this);
+                        explainPart(partId);
+                        zoomToPart(partId);
+                    });
+                    
+                    // Hover effects
+                    el.addEventListener('mouseenter', function() {
+                        this.setAttribute('scale', '1.05 1.05 1.05');
+                    });
+                    
+                    el.addEventListener('mouseleave', function() {
+                        this.setAttribute('scale', '1 1 1');
+                    });
+                }
+            });
+        }
+        
+        function highlightPart(element) {
+            const originalColor = element.getAttribute('material').color;
+            
+            // Make it glow
+            element.setAttribute('material', 'emissive', '#ffff00');
+            element.setAttribute('material', 'emissive-intensity', '0.8');
+            
+            // Reset after 2 seconds
+            setTimeout(() => {
+                element.setAttribute('material', 'emissive', '#000000');
+                element.setAttribute('material', 'emissive-intensity', '0');
+            }, 2000);
+        }
+        
+        function zoomToPart(partId) {
+            const camera = document.getElementById('camera-rig');
+            const part = document.getElementById(partId);
+            
+            if (!camera || !part) return;
+            
+            const partPos = part.object3D.position;
+            const zoomPos = {
+                x: partPos.x,
+                y: partPos.y + 0.3,
+                z: partPos.z + 1
+            };
+            
+            // Animate camera
+            camera.setAttribute('animation', {
+                property: 'position',
+                to: `${zoomPos.x} ${zoomPos.y} ${zoomPos.z}`,
+                dur: 1000,
+                easing: 'easeInOutQuad'
+            });
+        }
+        
+        function resetView() {
+            const camera = document.getElementById('camera-rig');
+            if (camera) {
+                camera.setAttribute('animation', {
+                    property: 'position',
+                    to: '0 1.6 4',
+                    dur: 800,
+                    easing: 'easeInOutQuad'
+                });
+                speak("View reset");
+            }
+        }
+        
+        function toggleLight() {
+            const light = document.getElementById('light-path');
+            const visible = light.getAttribute('visible');
+            light.setAttribute('visible', !visible);
+            speak(visible ? "Light path hidden" : "Showing light path");
+        }
+        
+        // ==================== AI VOICE SYSTEM ====================
+        const knowledge = {
+            base: "The telescope base provides stability. It prevents vibrations for clear viewing.",
+            mount: "The mount allows telescope movement. It can track stars as Earth rotates.",
+            tube: "The optical tube houses the mirrors. It blocks stray light and protects the optics.",
+            primary: "The primary mirror collects light from stars. It's a concave parabolic mirror.",
+            secondary: "The secondary mirror redirects light to the eyepiece. It's mounted at a 45 degree angle.",
+            eyepiece: "The eyepiece magnifies the image. Different eyepieces give different magnifications.",
+            finder: "The finder scope helps locate objects. It has crosshairs for precise aiming."
+        };
+        
+        function explainPart(partId) {
+            const text = knowledge[partId] || `This is the ${partId} of the telescope.`;
+            speak(text);
+            showMessage(text);
+        }
+        
+        function speak(text) {
+            console.log("🗣️ Speaking:", text);
+            
+            // Text-to-Speech
+            if ('speechSynthesis' in window) {
+                // Stop any current speech
+                window.speechSynthesis.cancel();
+                
+                // Create speech
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                utterance.volume = 1.0;
+                
+                // Try to get a good voice
+                const voices = speechSynthesis.getVoices();
+                if (voices.length > 0) {
+                    // Prefer Google US English or similar
+                    const preferred = voices.find(v => 
+                        v.lang.includes('en-US') && 
+                        (v.name.includes('Google') || v.name.includes('Samantha'))
+                    ) || voices[0];
+                    
+                    utterance.voice = preferred;
+                }
+                
+                // Speak
+                window.speechSynthesis.speak(utterance);
+                
+                // Visual feedback
+                document.body.style.backgroundColor = '#001100';
+                setTimeout(() => {
+                    document.body.style.backgroundColor = '#000';
+                }, 1000);
+            } else {
+                console.warn("Speech synthesis not supported");
+                alert(text); // Fallback
+            }
+        }
+        
+        function startVoice() {
+            if ('webkitSpeechRecognition' in window) {
+                const recognition = new webkitSpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+                
+                recognition.onstart = function() {
+                    showMessage("🎤 Listening... Speak now");
+                    speak("I'm listening");
+                };
+                
+                recognition.onresult = function(event) {
+                    const transcript = event.results[0][0].transcript;
+                    showMessage(`You said: ${transcript}`);
+                    processVoice(transcript);
+                };
+                
+                recognition.onerror = function(event) {
+                    showMessage("Voice error. Try again.");
+                };
+                
+                recognition.onend = function() {
+                    showMessage("Ready");
+                };
+                
+                recognition.start();
+            } else {
+                showMessage("Voice not supported. Use Chrome browser.");
+                speak("Voice recognition requires Chrome browser with microphone permission.");
+            }
+        }
+        
+        function processVoice(command) {
+            const cmd = command.toLowerCase();
+            
+            if (cmd.includes('hello') || cmd.includes('hi')) {
+                speak("Hello! I am your telescope AI assistant. Click any part to learn about it.");
+            } 
+            else if (cmd.includes('base') || cmd.includes('tripod')) {
+                explainPart('base');
+            }
+            else if (cmd.includes('mount')) {
+                explainPart('mount');
+            }
+            else if (cmd.includes('tube')) {
+                explainPart('tube');
+            }
+            else if (cmd.includes('primary') || cmd.includes('main mirror')) {
+                explainPart('primary');
+            }
+            else if (cmd.includes('secondary') || cmd.includes('small mirror')) {
+                explainPart('secondary');
+            }
+            else if (cmd.includes('eye') || cmd.includes('lens')) {
+                explainPart('eyepiece');
+            }
+            else if (cmd.includes('finder')) {
+                explainPart('finder');
+            }
+            else if (cmd.includes('how work') || cmd.includes('how does it work')) {
+                speak("Light enters the tube, hits the primary mirror, reflects to secondary mirror, then goes to eyepiece where you see the magnified image.");
+            }
+            else if (cmd.includes('reset') || cmd.includes('back')) {
+                resetView();
+            }
+            else if (cmd.includes('light')) {
+                toggleLight();
+            }
+            else if (cmd.includes('thank')) {
+                speak("You're welcome!");
+            }
+            else {
+                speak(`I heard: ${command}. Try saying 'explain primary mirror' or 'how does it work'.`);
+            }
+        }
+        
+        // ==================== UTILITIES ====================
+        function playSound(id) {
+            const sound = document.getElementById(id);
+            if (sound) {
+                sound.currentTime = 0;
+                sound.play().catch(e => console.log("Sound error:", e));
+            }
+        }
+        
+        // Load voices early
+        if ('speechSynthesis' in window) {
+            speechSynthesis.getVoices();
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === ' ') {
+                startVoice();
+            }
+            if (e.key === 'Escape') {
+                resetView();
+            }
+            if (e.key === '1') explainPart('base');
+            if (e.key === '2') explainPart('mount');
+            if (e.key === '3') explainPart('tube');
+            if (e.key === '4') explainPart('primary');
+            if (e.key === '5') explainPart('eyepiece');
+        });
+        
+        // Auto-start message
+        setTimeout(() => {
+            if (document.getElementById('loading').classList.contains('hidden')) {
+                speak("Click the telescope parts to explore!");
+            }
+        }, 3000);
+        
+    </script>
+</body>
+</html>
